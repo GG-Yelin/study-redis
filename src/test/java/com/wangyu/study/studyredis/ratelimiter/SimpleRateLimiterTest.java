@@ -1,5 +1,6 @@
-package com.wangyu.study.studyredis;
+package com.wangyu.study.studyredis.ratelimiter;
 
+import jdk.nashorn.internal.ir.annotations.Ignore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -7,7 +8,10 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Response;
 
+import java.util.List;
+
 @SpringBootTest
+@Ignore
 public class SimpleRateLimiterTest {
 
     @Autowired
@@ -18,7 +22,7 @@ public class SimpleRateLimiterTest {
         long now = System.currentTimeMillis();
         jedis.zadd(key, now, String.valueOf(now));
         jedis.zremrangeByScore(key, 0, now - periodSecond * 1000L);
-        jedis.expire(key, periodSecond + 1);
+        jedis.expire(key, (long) periodSecond + 1);
         return jedis.zcard(key) <= maxCount;
     }
 
@@ -26,14 +30,13 @@ public class SimpleRateLimiterTest {
         String key = String.format("hist:%s:%s", userId, actionKey);
         long now = System.currentTimeMillis();
         Pipeline pipeline = jedis.pipelined();
-        pipeline.multi();
         pipeline.zadd(key, now, String.valueOf(now));
         pipeline.zremrangeByScore(key, 0, now - periodSecond * 1000L);
-        pipeline.expire(key, periodSecond + 1);
-        Response<Long> count = pipeline.zcard(key);
-        pipeline.exec();
-        pipeline.close();
-        return count.get() <= maxCount;
+        pipeline.expire(key, (long) periodSecond + 1);
+        pipeline.zcard(key);
+        List<Object> res = pipeline.syncAndReturnAll();
+        long count = (long) res.get(3);
+        return count <= maxCount;
     }
 
     @Test

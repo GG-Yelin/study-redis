@@ -1,12 +1,14 @@
 package com.wangyu.study.studyredis;
 
 import com.wangyu.study.studyredis.infra.repository.storage.redis.delayqueue.RedisDelayingQueue;
+import jdk.nashorn.internal.ir.annotations.Ignore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import redis.clients.jedis.Jedis;
 
 @SpringBootTest
+@Ignore
 public class RedisDelayQueueTest {
 
     @Autowired

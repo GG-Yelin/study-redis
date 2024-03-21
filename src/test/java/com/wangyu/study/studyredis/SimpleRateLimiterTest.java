@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.Response;
 
 @SpringBootTest
 public class SimpleRateLimiterTest {
@@ -20,6 +22,20 @@ public class SimpleRateLimiterTest {
         return jedis.zcard(key) <= maxCount;
     }
 
+    public boolean isActionAllowedByPipeline(String userId, String actionKey, int periodSecond, int maxCount) {
+        String key = String.format("hist:%s:%s", userId, actionKey);
+        long now = System.currentTimeMillis();
+        Pipeline pipeline = jedis.pipelined();
+        pipeline.multi();
+        pipeline.zadd(key, now, String.valueOf(now));
+        pipeline.zremrangeByScore(key, 0, now - periodSecond * 1000L);
+        pipeline.expire(key, periodSecond + 1);
+        Response<Long> count = pipeline.zcard(key);
+        pipeline.exec();
+        pipeline.close();
+        return count.get() <= maxCount;
+    }
+
     @Test
     public void testSimpleRateLimiter() throws InterruptedException {
         for (int i = 0; i < 20; i++) {
@@ -31,5 +47,15 @@ public class SimpleRateLimiterTest {
         }
     }
 
+    @Test
+    public void testSimpleRateLimiter2() throws InterruptedException {
+        for (int i = 0; i < 20; i++) {
+            System.out.println(isActionAllowedByPipeline("zhangsan", "CLICK", 1, 5));
+        }
+        Thread.sleep(1000);
+        for (int i = 0; i < 20; i++) {
+            System.out.println(isActionAllowedByPipeline("zhangsan", "CLICK", 1, 5));
+        }
+    }
 
 }
